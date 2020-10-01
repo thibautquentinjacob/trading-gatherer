@@ -1,8 +1,18 @@
+import * as express from 'express';
+import {
+    ConfigurationInputType,
+    createLightship,
+    LightshipType,
+} from 'lightship';
 import { connect, Mongoose } from 'mongoose';
 import { Constants } from './constants';
 import { Helper } from './Helper';
 import { GatheredSymbol, GatheredSymbolSchema } from './models/GatheredSymbol';
 import { SymbolWatchersManager } from './models/SymbolWatchersManager';
+
+// Health-check settings
+const configuration: ConfigurationInputType = {};
+const lightship: LightshipType = createLightship(configuration);
 
 export class App {
     private readonly _dbHost!: string | undefined;
@@ -25,6 +35,7 @@ export class App {
         // eslint-disable-next-line
         this._connectToDb(this._dbHost!, this._dbPort!, 'Backtesting')
             .then(() => {
+                lightship.signalReady();
                 // this._dbConnection = mongoose.connection;
                 setInterval(async () => {
                     console.log('Refreshing list of of monitored symbols');
@@ -37,6 +48,13 @@ export class App {
                     `Could not initialize connection to mongodb://${dbHost}:${dbPort}: ${error}`
                 );
             });
+
+        const app = express();
+        const server = app.listen(8080);
+
+        lightship.registerShutdownHandler(() => {
+            server.close();
+        });
     }
 
     /**
